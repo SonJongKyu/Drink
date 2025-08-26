@@ -1,0 +1,9 @@
+FROM gradle:8.12.0-jdk21-alpine AS dev
+
+WORKDIR /app
+
+COPY . .
+
+WORKDIR /app/services/alcohols
+
+CMD ["gradle", "bootRun", "--no-daemon"]

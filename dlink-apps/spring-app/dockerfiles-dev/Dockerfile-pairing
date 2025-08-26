@@ -1,0 +1,29 @@
+FROM gradle:8.12.0-jdk21-alpine AS dev
+
+RUN apk update && apk add --no-cache \
+    chromium \
+    chromium-chromedriver \
+    harfbuzz \
+    nss \
+    freetype \
+    ttf-freefont \
+    fontconfig \
+    libstdc++ \
+    bash \
+    curl \
+    wget \
+    unzip \
+    glib \
+    xvfb
+
+
+ENV CHROME_BIN=/usr/bin/chromium
+ENV CHROME_DRIVER=/usr/bin/chromedriver
+
+WORKDIR /app
+
+COPY . .
+
+WORKDIR /app/services/pairing
+
+CMD ["gradle", "bootRun", "--no-daemon"]

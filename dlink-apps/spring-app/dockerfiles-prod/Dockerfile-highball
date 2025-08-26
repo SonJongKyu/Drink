@@ -1,0 +1,28 @@
+# Builder Stage
+FROM gradle:8.12.0-jdk21-alpine AS builder
+WORKDIR /app
+
+# Gradle 캐싱을 활용한 빌드 최적화
+COPY gradle gradle
+COPY build.gradle settings.gradle ./
+COPY services/highball highball
+RUN gradle :highball:dependencies --no-daemon  # 종속성 캐싱
+COPY . .
+RUN gradle :highball:bootJar --no-daemon
+
+# Production Stage
+FROM openjdk:21-jdk-slim AS production
+WORKDIR /app
+
+RUN groupadd --system appgroup && useradd --system --create-home --gid appgroup appuser
+
+COPY --from=builder /app/highball/build/libs/*.jar app.jar
+RUN chown -R appuser:appgroup /app && chmod 750 /app/app.jar
+
+USER appuser
+
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/urandom"
+
+EXPOSE 9993
+
+ENTRYPOINT ["java", "-jar", "app.jar"]

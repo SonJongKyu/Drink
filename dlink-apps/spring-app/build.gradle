@@ -1,0 +1,72 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.3.8'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'site.dlink'
+version = '0.0.1-SNAPSHOT'
+
+bootJar { enabled = false }
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'org.springframework.boot'
+    apply plugin: 'io.spring.dependency-management'
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+    }
+
+    configurations {
+        compileOnly {
+            extendsFrom annotationProcessor
+        }
+    }
+
+    repositories {
+        mavenCentral()
+    }
+
+    dependencies {
+        implementation 'org.springframework.boot:spring-boot-starter'
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+        //  Lombok 
+        compileOnly 'org.projectlombok:lombok'
+        annotationProcessor 'org.projectlombok:lombok'
+        testCompileOnly 'org.projectlombok:lombok'
+        testAnnotationProcessor 'org.projectlombok:lombok'
+        implementation 'jakarta.annotation:jakarta.annotation-api:2.1.1' 
+
+        // Swagger
+        implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
+
+        //  Dev Tools 
+        developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+        // Observability
+        implementation 'org.springframework.boot:spring-boot-starter-actuator'
+        implementation 'io.micrometer:micrometer-tracing-bridge-otel'
+        implementation 'io.opentelemetry:opentelemetry-exporter-zipkin'
+
+    }
+
+    dependencyManagement {
+        imports {
+            mavenBom "org.springframework.cloud:spring-cloud-dependencies:2023.0.3"
+        }
+    }
+
+    tasks.named('test') {
+        useJUnitPlatform()
+    }
+}
+
+configure(subprojects.findAll { it.name == 'common' }) {
+    tasks.withType(Test).configureEach {
+        enabled = false
+    }
+}

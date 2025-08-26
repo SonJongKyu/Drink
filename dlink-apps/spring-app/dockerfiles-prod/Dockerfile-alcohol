@@ -1,0 +1,29 @@
+# Builder Stage
+FROM gradle:8.12.0-jdk21-alpine AS builder
+WORKDIR /app
+
+# Gradle 캐싱을 활용한 빌드 최적화
+COPY gradle gradle
+COPY build.gradle settings.gradle ./
+COPY services/alcohols alcohols
+RUN gradle :alcohols:dependencies --no-daemon
+COPY . .
+RUN gradle :alcohols:bootJar --no-daemon
+
+# Production Stage
+FROM openjdk:21-jdk-slim AS production
+WORKDIR /app
+
+# 보안: 실행 전용 사용자 생성 및 루트 사용 방지
+RUN groupadd --system appgroup && useradd --system --create-home --gid appgroup appuser
+
+# JAR 파일 복사 및 소유자 지정
+COPY --from=builder /app/alcohols/build/libs/*.jar app.jar
+RUN chown -R appuser:appgroup /app && chmod 750 /app/app.jar
+
+# 비루트 사용자로 실행
+USER appuser
+
+EXPOSE 9992
+
+ENTRYPOINT ["java", "-jar", "app.jar"]

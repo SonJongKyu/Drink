@@ -1,0 +1,17 @@
+rootProject.name = 'dlink'
+
+include 'common'
+include 'api-gateway'
+include 'auth'
+include 'alcohols'
+include 'review'
+include 'highball'
+include 'pairing'
+
+project(':common').projectDir = file('services/common')
+project(':api-gateway').projectDir = file('services/api-gateway')
+project(':auth').projectDir = file('services/auth')
+project(':alcohols').projectDir = file('services/alcohols')
+project(':review').projectDir = file('services/review')
+project(':highball').projectDir = file('services/highball')
+project(':pairing').projectDir = file('services/pairing')
