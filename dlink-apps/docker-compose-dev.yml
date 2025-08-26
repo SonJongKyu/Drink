@@ -1,0 +1,177 @@
+networks:
+  dlink_net:
+    driver: bridge
+
+services:
+  redis:
+    image: redis:7
+    restart: always
+    ports:
+      - "6379:6379"
+    command: sh -c "redis-server --requirepass \"$SPRING_DATA_REDIS_PASSWORD\""
+    environment:
+      - SPRING_DATA_REDIS_PASSWORD=${SPRING_DATA_REDIS_PASSWORD}
+    networks:
+      - dlink_net
+
+  api-gateway:
+    image: api-gateway:dev
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-dev/Dockerfile-api-gateway
+    restart: always
+    ports:
+      - "9999:9999"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SERVER_PORT: 9999
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      AUTH_SERVICE_URI: ${AUTH_SERVICE_URI}
+      ALCOHOL_SERVICE_URI: ${ALCOHOL_SERVICE_URI}
+      HIGHBALL_SERVICE_URI: ${HIGHBALL_SERVICE_URI}
+      REVIEW_SERVICE_URI: ${REVIEW_SERVICE_URI}
+      PAIRING_SERVICE_URI: ${PAIRING_SERVICE_URI}
+      OTEL_COLLECTOR_URI: ${OTEL_COLLECTOR_URI}
+    volumes:
+      - ./spring-app/services/api-gateway/build:/app/services/api-gateway/build
+    networks:
+      - dlink_net
+
+  auth-service:
+    image: auth-service:dev
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-dev/Dockerfile-auth
+    restart: always
+    ports:
+      - "9991:9991"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      GOOGLE_APP_USERNAME: ${GOOGLE_APP_USERNAME}
+      GOOGLE_APP_PASSWORD: ${GOOGLE_APP_PASSWORD}
+      SERVER_PORT: 9991
+    volumes:
+      - ./spring-app/services/auth/build:/app/services/auth/build
+    networks:
+      - dlink_net
+
+  alcohol-service:
+    image: alcohol-service:dev
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-dev/Dockerfile-alcohol
+    restart: always
+    ports:
+      - "9992:9992"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI}
+      ES_DATASOURCE_URI: ${ES_DATASOURCE_URI}
+      SERVER_PORT: 9992
+      OTEL_COLLECTOR_URI: ${OTEL_COLLECTOR_URI}
+    volumes:
+      - ./spring-app/services/alcohols/build:/app/services/alcohols/build
+    networks:
+      - dlink_net
+
+  highball-service:
+    image: highball-service:dev
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-dev/Dockerfile-highball
+    restart: always
+    ports:
+      - "9993:9993"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI}
+      AWS_ACCESS_KEY: ${AWS_ACCESS_KEY}
+      AWS_SECRET_KEY: ${AWS_SECRET_KEY}
+      SERVER_PORT: 9993
+    volumes:
+      - ./spring-app/services/highball/build:/app/services/highball/build
+    networks:
+      - dlink_net
+
+  review-service:
+    image: review-service:dev
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-dev/Dockerfile-review
+    restart: always
+    ports:
+      - "9994:9994"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI}
+      SERVER_PORT: 9994
+    volumes:
+      - ./spring-app/services/review/build:/app/services/review/build
+    networks:
+      - dlink_net
+
+  pairing-service:
+    image: pairing-service:dev
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-dev/Dockerfile-pairing
+    restart: always
+    ports:
+      - "9995:9995"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI}
+      AWS_ACCESS_KEY: ${AWS_ACCESS_KEY}
+      AWS_SECRET_KEY: ${AWS_SECRET_KEY}
+      SERVER_PORT: 9995
+      SPRING_DATA_REDIS_HOST: ${SPRING_DATA_REDIS_HOST}
+      SPRING_DATA_REDIS_PORT: ${SPRING_DATA_REDIS_PORT}
+      SPRING_DATA_REDIS_PASSWORD: ${SPRING_DATA_REDIS_PASSWORD}
+    volumes:
+      - ./spring-app/services/pairing/build:/app/services/pairing/build
+    networks:
+      - dlink_net
+
+  next-app:
+    image: next-app:dev
+    build:
+      context: ./next-app
+      dockerfile: ./Dockerfile-dev
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      SPRING_URI: ${SPRING_URI}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      KAKAO_REST_API: ${KAKAO_REST_API}
+      KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET}
+      NAVER_CLIENT_ID: ${NAVER_CLIENT_ID}
+      NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET}
+      NEXTAUTH_SECRET: ${JWT_SECRET_KEY}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      AWS_ACCESS_KEY: ${AWS_ACCESS_KEY}
+      AWS_SECRET_KEY: ${AWS_SECRET_KEY}
+      AWS_GATEWAY_URI: ${AWS_GATEWAY_URI}
+    volumes:
+      - ./next-app:/app 
+    networks:
+      - dlink_net
+
+  chat-service:
+    image: chat-service:dev
+    build:
+      context: ./chatbot-app
+      dockerfile: ./Dockerfile-dev
+    ports:
+      - "13956:13956"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SPRING_DATA_MONGODB_URI=${SPRING_DATA_MONGODB_URI}
+    volumes:
+      - ./chatbot-app/:/app
+    networks:
+      - dlink_net
