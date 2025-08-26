@@ -1,0 +1,185 @@
+services:
+
+  api-gateway:
+    image: 192.168.3.81/dlink/api-gateway:v1.2
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-prod/Dockerfile-api-gateway
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SERVER_PORT: 9999
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      AUTH_SERVICE_URI: ${AUTH_SERVICE_URI}
+      ALCOHOL_SERVICE_URI: ${ALCOHOL_SERVICE_URI}
+      HIGHBALL_SERVICE_URI: ${HIGHBALL_SERVICE_URI}
+      REVIEW_SERVICE_URI: ${REVIEW_SERVICE_URI}
+      PAIRING_SERVICE_URI: ${PAIRING_SERVICE_URI}
+    networks:
+      - front_net
+      - back_net
+
+  auth-service:
+    image: 192.168.3.81/dlink/auth-service:v1.0
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-prod/Dockerfile-auth
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      SERVER_PORT: 9991
+    networks:
+      - front_net
+
+  alcohol-service:
+    image: 192.168.3.81/dlink/alcohol-service:v1.0
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-prod/Dockerfile-alcohol
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI}
+      ES_DATASOURCE_URI: ${ES_DATASOURCE_URI}
+      SERVER_PORT: 9992
+    networks:
+      - back_net
+
+  highball-service:
+    image: 192.168.3.81/dlink/highball-service:v1.0
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-prod/Dockerfile-highball
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI}
+      AWS_ACCESS_KEY: ${AWS_ACCESS_KEY}
+      AWS_SECRET_KEY: ${AWS_SECRET_KEY}
+      SERVER_PORT: 9993
+    networks:
+      - back_net
+
+  review-service:
+    image: 192.168.3.81/dlink/review-service:v1.0
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-prod/Dockerfile-review
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI}
+      SERVER_PORT: 9994
+    networks:
+      - back_net
+
+  pairing-service:
+    image: 192.168.3.81/dlink/pairing-service:v1.0
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-prod/Dockerfile-pairing
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI}
+      AWS_ACCESS_KEY: ${AWS_ACCESS_KEY}
+      AWS_SECRET_KEY: ${AWS_SECRET_KEY}
+      SERVER_PORT: 9995
+    networks:
+      - back_net
+
+  next-app:
+    image: 192.168.3.81/dlink/next-app:v1.0
+    build:
+      context: ./next-app
+      dockerfile: ./Dockerfile-prod
+    restart: always
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      SPRING_URI: ${SPRING_URI}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      KAKAO_REST_API: ${KAKAO_REST_API}
+      KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET}
+      NAVER_CLIENT_ID: ${NAVER_CLIENT_ID}
+      NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET}
+      NEXTAUTH_SECRET: ${JWT_SECRET_KEY}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      AWS_ACCESS_KEY: ${AWS_ACCESS_KEY}
+      AWS_SECRET_KEY: ${AWS_SECRET_KEY}
+    networks:
+      - front_net
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+
+  kafka:
+    image: 192.168.3.81/dlink/kafka:v1.0
+    build:
+      context: ./kafka/broker
+      dockerfile: Dockerfile
+    container_name: kafka-broker-3
+    environment:
+      - BROKER_ID=3
+      - ZOOKEEPER_CONNECT=192.168.3.81:2181
+      - LISTENERS=PLAINTEXT://0.0.0.0:9092
+      - ADVERTISED_LISTENERS=PLAINTEXT://192.168.3.83:9092
+      - LOG_DIRS=/var/lib/kafka/logs-3
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+    volumes:
+      - ./kafka/logs-3:/var/lib/kafka/logs-3
+    ports:
+      - "9092:9092"
+    networks:
+      - kafka_net
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./property/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - next-app
+    networks:
+      - front_net
+
+  redis-master:
+    image: redis:6.2
+    container_name: redis-master
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis/master/redis.conf:/usr/local/etc/redis/redis.conf
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    networks:
+      - redis_net
+
+  redis-slave:
+    image: redis:6.2
+    container_name: redis-slave
+    restart: always
+    ports:
+      - "6380:6379"
+    depends_on:
+      - redis-master
+    volumes:
+      - ./redis/slave/redis.conf:/usr/local/etc/redis/redis.conf
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--replicaof", "redis-master", "6379"]
+    networks:
+      - redis_net
+
+networks:
+  front_net:
+    driver: bridge
+  back_net:
+    driver: bridge
+  kafka_net:
+    driver: bridge
+  redis_net:
+    driver: bridge

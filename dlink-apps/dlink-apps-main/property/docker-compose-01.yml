@@ -1,0 +1,159 @@
+services:
+
+  zookeeper:
+    image: bitnami/zookeeper:latest
+    networks:
+      - kafka_net
+    container_name: zookeeper
+    hostname: zookeeper
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    ports:
+      - "2181:2181"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    build:
+      context: ./kafka/broker
+      dockerfile: Dockerfile
+    container_name: kafka-broker-1
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      - BROKER_ID=1
+      - ZOOKEEPER_CONNECT=zookeeper:2181
+      - LISTENERS=PLAINTEXT://0.0.0.0:9092
+      - ADVERTISED_LISTENERS=PLAINTEXT://192.168.3.81:9092
+      - LOG_DIRS=/var/lib/kafka/logs-1
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+    volumes: 
+      - ./kafka/logs-1:/var/lib/kafka/logs-1
+    ports:
+      - "9092:9092"
+    networks:
+      - kafka_net
+    restart: unless-stopped
+
+  yangjuconsumer:
+    build:
+      context: ./kafka/consumer/yangju
+      dockerfile: Dockerfile
+    container_name: yangjuconsumer
+    environment:
+      - KAFKA_BROKER=192.168.3.81:9092,192.168.3.82:9092,192.168.3.83:9092
+      - MONGO_URI=mongodb://admin:admin@192.168.3.81:27017/
+      - AWS_REGION=us-east-1
+      - AWS_CREDENTIALS_PATH=/app/dalbok_accessKeys.csv
+      - BEDROCK_MODEL_ID=arn:aws:bedrock:us-east-1:633966959963:inference-profile/us.anthropic.claude-3-5-sonnet-20241022-v2:0    
+      - DATABASE_NAME=dlink_db
+      - COLLECTION_NAME=brandy,gin,rum,liqueur,tequila,vodka,whiskey
+      - TOPIC_NAME=brandyTopic,ginTopic,rumTopic,liqueurTopic,tequilaTopic,vodkaTopic,whiskeyTopic
+    depends_on:
+      - kafka
+    volumes:
+      - ./kafka/consumer/yangju:/app
+    working_dir: /app
+    command: ["python", "yangjuConsumer.py"]
+    networks:
+      - kafka_net
+    restart: unless-stopped
+
+  highballconsumer:
+    build:
+      context: ./kafka/consumer/highball
+      dockerfile: Dockerfile
+    container_name: highballconsumer
+    environment:
+      - KAFKA_BROKER=192.168.3.81:9092,192.168.3.82:9092,192.168.3.83:9092
+      - MONGO_URI=mongodb://admin:admin@192.168.3.81:27017/
+      - DATABASE_NAME=dlink_db
+      - COLLECTION_NAME=highball
+      - TOPIC_NAME=highballTopic
+    depends_on:
+      - kafka
+    volumes: 
+      - ./kafka/consumer/highball:/app
+    working_dir: /app
+    command: ["python", "highballConsumer.py"]
+    networks:
+      - kafka_net
+    restart: unless-stopped
+
+  redis-master:
+    image: redis:6.2
+    container_name: redis-master
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis/master/redis.conf:/usr/local/etc/redis/redis.conf
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    networks:
+      - redis_net
+
+  redis-slave:
+    image: redis:6.2
+    container_name: redis-slave
+    restart: always
+    ports:
+      - "6380:6379"
+    depends_on:
+      - redis-master
+    volumes:
+      - ./redis/slave/redis.conf:/usr/local/etc/redis/redis.conf
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf", "--replicaof", "redis-master", "6379"]
+    networks:
+      - redis_net
+
+  sentinel-1:
+    image: redis:6.2
+    container_name: sentinel-1
+    restart: always
+    ports:
+      - "26379:26379"
+    depends_on:
+      - redis-master
+    volumes:
+      - ./redis/sentinel/sentinel-1.conf:/usr/local/etc/redis/sentinel.conf
+    command: ["redis-server", "/usr/local/etc/redis/sentinel.conf", "--sentinel"]
+    networks:
+      - redis_net
+
+  sentinel-2:
+    image: redis:6.2
+    container_name: sentinel-2
+    restart: always
+    ports:
+      - "26380:26379"
+    depends_on:
+      - redis-master
+    volumes:
+      - ./redis/sentinel/sentinel-2.conf:/usr/local/etc/redis/sentinel.conf
+    command: ["redis-server", "/usr/local/etc/redis/sentinel.conf", "--sentinel"]
+    networks:
+      - redis_net
+
+  sentinel-3:
+    image: redis:6.2
+    container_name: sentinel-3
+    restart: always
+    ports:
+      - "26381:26379"
+    depends_on:
+      - redis-master
+    volumes:
+      - ./redis/sentinel/sentinel-3.conf:/usr/local/etc/redis/sentinel.conf
+    command: ["redis-server", "/usr/local/etc/redis/sentinel.conf", "--sentinel"]
+    networks:
+      - redis_net
+
+networks:
+  kafka_net:
+    driver: bridge
+  redis_net:
+    driver: bridge
