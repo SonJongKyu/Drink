@@ -1,0 +1,42 @@
+{
+    "compilerOptions": {
+        "target": "esnext",
+        "lib": ["dom", "dom.iterable", "esnext"],
+        "allowJs": true,
+        "skipLibCheck": true,
+        "strict": true,
+        "forceConsistentCasingInFileNames": true,
+        "noEmit": true,
+        "esModuleInterop": true,
+        "module": "esnext",
+        "moduleResolution": "node",
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "jsx": "preserve",
+        "incremental": true,
+        "plugins": [
+            {
+                "name": "next"
+            }
+        ],
+        "paths": {
+            "@/*": ["./*"]
+        }
+    },
+    "include": [
+        "next-env.d.ts",
+        "**/*.ts",
+        "**/*.tsx",
+        "**/*.js",
+        ".next/types/**/*.ts",
+        "app/(auth)/layout.js",
+        "components/**/*.js",
+        "components/home/content.js",
+        "components/icons/funnelicon.js",
+        "app/api/auth/[...nextauth]/route.ts",
+        "components/auth/login.tsx",
+        "app/(app)/categories/yangju/page.js",
+        "chatbot/**/*.jsx"
+    ],
+    "exclude": ["node_modules"]
+}

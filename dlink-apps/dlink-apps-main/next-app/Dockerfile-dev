@@ -1,0 +1,12 @@
+FROM node:20-bullseye
+
+WORKDIR /app
+
+COPY package.json ./
+ENV NODE_OPTIONS=--openssl-legacy-provider
+RUN npm install
+
+COPY . .
+
+# 개발 모드로 실행
+CMD ["npm", "run", "dev"]
