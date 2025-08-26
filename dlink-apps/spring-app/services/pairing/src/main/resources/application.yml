@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: pairing
+  ai:
+    bedrock:
+      aws:
+        region: us-west-2
+        access-key: ${AWS_ACCESS_KEY:default-access-key}
+        secret-key: ${AWS_SECRET_KEY:default-secret-key}
+      converse:
+        chat:
+          options:
+            model: arn:aws:bedrock:us-west-2:084550838259:inference-profile/us.anthropic.claude-3-5-sonnet-20241022-v2:0            
+            temperature: 0.7
+            max-tokens: 500

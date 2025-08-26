@@ -1,0 +1,12 @@
+spring:
+  devtools:
+    restart:
+      enabled: true
+
+springdoc:
+  api-docs:
+    path: /api/v1/alcohols/v3/api-docs
+
+logging:
+  level:
+    root: INFO

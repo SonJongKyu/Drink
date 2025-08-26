@@ -1,0 +1,13 @@
+dependencies {
+    implementation project(':common') 
+
+    // MVC
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // Elasticsearch
+    implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
+
+    // MongoDB 
+    implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
+
+}

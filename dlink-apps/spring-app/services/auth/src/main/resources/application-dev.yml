@@ -1,0 +1,15 @@
+spring:
+  devtools:
+    restart:
+      enabled: true
+
+springdoc:
+  api-docs:
+    path: /api/v1/auth/v3/api-docs
+
+logging:
+  level:
+    root: INFO
+    site:
+      dlink:
+        auth: DEBUG

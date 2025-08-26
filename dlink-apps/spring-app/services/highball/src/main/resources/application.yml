@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: highball
+
+  servlet:
+    multipart:
+      max-file-size: 30MB
+      max-request-size: 30MB
+
+cloud:
+  aws:
+    s3:
+      bucket: dlink-highball-bucket
+    stack:
+      auto: false
+    credentials:
+      access-key: ${AWS_ACCESS_KEY:default-access-key}
+      secret-key: ${AWS_SECRET_KEY:default-secret-key}
+    region:
+      static: ap-northeast-2

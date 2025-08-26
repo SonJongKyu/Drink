@@ -1,0 +1,10 @@
+dependencies {
+    implementation project(':common') 
+
+    // MVC
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // MongoDB 
+    implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
+
+}
