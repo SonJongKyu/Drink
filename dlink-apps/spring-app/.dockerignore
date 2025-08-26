@@ -1,0 +1,17 @@
+# Ignore Gradle build files
+.gradle
+build/
+!**/src/main/**/build/
+
+# Ignore IDE configurations
+.idea
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Ignore unnecessary files
+logs/
+*.log
+.env
+.DS_Store
