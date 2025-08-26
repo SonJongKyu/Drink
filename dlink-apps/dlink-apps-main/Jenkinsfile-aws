@@ -1,0 +1,245 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_COMPOSE_FILE = "docker-compose-build.yml"
+        HARBOR_URL          = "192.168.3.81"
+        SONAR_PROJECT_KEY   = "dlink-apps"
+        ECR_URL = "084550838259.dkr.ecr.ap-northeast-2.amazonaws.com"
+        AWS_REGION = "ap-northeast-2"
+    }
+
+    stages {
+
+        stage('BuiLd Classes & SonarQube Analysis') {
+            steps {
+                script {
+
+                    dir('spring-app') {
+                        sh "./gradlew classes"
+                    }
+
+                    def scannerHome = tool 'sonarqube-scanner'
+                    withSonarQubeEnv('sonarqube-server') {
+                        sh """${scannerHome}/bin/sonar-scanner \\
+                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \\
+                            -Dsonar.sources=. \\
+                            -Dsonar.java.binaries=\$(find . -type d -name "build" | paste -sd ",") \\
+                            -Dsonar.ts.tslint.reportPaths=reports/tslint.json \\
+                            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+                            """
+                    }
+                }
+            }
+        }
+
+        stage("Quality Gate") {
+            steps {
+                timeout(time: 1, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Detect & Build Changed Applications') {
+            steps {
+                script {
+                    // (1) `git diff` 실행하여 변경된 `image:` 라인만 추출
+                    def composeDiff = sh(
+                        script: "git diff HEAD^ HEAD -- ${DOCKER_COMPOSE_FILE} | grep '^+.*image:' || true",
+                        returnStdout: true
+                    ).trim()
+
+                    // (2) 변경된 라인이 없으면 스킵
+                    if (!composeDiff) {
+                        echo "🚀 No image changes detected in ${DOCKER_COMPOSE_FILE}. Skipping build."
+                        currentBuild.result = 'SUCCESS'
+                        return
+                    }
+
+                    echo "📌 변경된 이미지 라인:\n${composeDiff}"
+
+                    def servicesToBuild = []
+                    def versionMap = [:]
+                    def pattern = ~/image:\s*(\S+)\/dlink\/([^:]+):([\w\.-]+)/  // 정규식 개선
+
+                    // (3) `+` 기준으로 줄을 분리하여 처리
+                    composeDiff.split('\n').each { line ->
+                        line = line.trim() // 앞뒤 공백 제거
+                        if (line.startsWith('+')) { // `+` 포함된 줄만 처리
+                            def matcher = pattern.matcher(line)
+                            if (matcher.find()) {
+                                def harborUrl = matcher.group(1)   // IP 또는 레지스트리 주소
+                                def serviceName = matcher.group(2) // 서비스명
+                                def versionTag = matcher.group(3)  // 버전
+
+                                echo "✅ 변경 감지됨: 서비스=${serviceName}, 버전=${versionTag}"
+
+                                servicesToBuild.add(serviceName)
+                                versionMap[serviceName] = versionTag
+                            }
+                        }
+                    }
+
+                    // (4) 중복 제거 및 최종 빌드할 서비스 확인
+                    servicesToBuild = servicesToBuild.unique()
+                    if (servicesToBuild.isEmpty()) {
+                        echo "🚀 No services need to be built. Skipping."
+                        currentBuild.result = 'SUCCESS'
+                        return
+                    }
+
+                    env.SERVICES_TO_BUILD = servicesToBuild.join(" ")
+                    env.VERSION_MAP = versionMap.collect { k, v -> "${k}:${v}" }.join(",")
+
+                    echo "🛠️ 현재 감지된 서비스 리스트: ${servicesToBuild}"
+                    echo "🛠️ 현재 감지된 버전 맵: ${versionMap}"
+
+                    // (5) Docker build 실행
+                    def buildCommand = "docker-compose -f ${DOCKER_COMPOSE_FILE} build ${servicesToBuild.join(' ')}"
+                    echo "🚀 실행할 Docker Build 명령어: ${buildCommand}"
+                    sh buildCommand
+                }
+            }
+        }
+
+        stage('Push to AWS ECR') {
+            when {
+                expression { env.SERVICES_TO_BUILD && env.SERVICES_TO_BUILD.trim() != "" }
+            }
+            steps {
+                script {
+                    // AWS ECR 레지스트리 URL
+
+                    if (!env.VERSION_MAP) {
+                        echo "⚠️ VERSION_MAP이 비어 있음. 푸시할 이미지가 없습니다."
+                        return
+                    }
+
+                    // AWS ECR 로그인 수행
+                    echo "🔐 AWS ECR 로그인 중..."
+                    def loginResult = sh(
+                        script: "aws ecr get-login-password --region ${env.AWS_REGION} | docker login --username AWS --password-stdin ${env.ECR_URL}",
+                        returnStatus: true
+                    )
+
+                    if (loginResult != 0) {
+                        error("❌ AWS ECR 로그인 실패! Push를 중단합니다.")
+                    }
+
+                    echo "✅ AWS ECR 로그인 성공!"
+
+                    // 변경된 서비스 리스트 반복
+                    env.SERVICES_TO_BUILD.split(" ").each { service ->
+                        def imageEntry = env.VERSION_MAP.split(",").find { it.startsWith("${service}:") }
+                        def imageTag = imageEntry ? imageEntry.split(":")[1] : "latest"
+                        def ecrRepository = "${ECR_URL}/dlink/${service}"
+
+                        echo "🚀 푸시할 서비스: ${service}, 태그: ${imageTag}"
+
+                        // Docker 이미지가 실제로 존재하는지 확인
+                        def imageExists = sh(script: "docker images -q ${ecrRepository}:${imageTag}", returnStdout: true).trim()
+                        if (!imageExists) {
+                            echo "❌ 오류: ${ecrRepository}:${imageTag} 이미지가 존재하지 않습니다. Push를 스킵합니다."
+                            return
+                        }
+
+                        // Docker 이미지 푸시
+                        sh """
+                        docker push ${ecrRepository}:${imageTag}
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Update Manifests in dlink-manifests') {
+            when {
+                expression { env.SERVICES_TO_BUILD && env.SERVICES_TO_BUILD.trim() != "" }
+            }
+            steps {
+                script {
+                    echo "🔍 SERVICES_TO_BUILD: ${env.SERVICES_TO_BUILD}"
+                    echo "🔍 VERSION_MAP: ${env.VERSION_MAP}"
+
+                    // (1) 서비스명 -> manifest patch 파일 매핑
+                    def patchMap = [
+                        "api-gateway":      "gateway-patch.yaml",
+                        "auth-service":     "auth-patch.yaml",
+                        "alcohol-service":  "alcohol-patch.yaml",
+                        "highball-service": "highball-patch.yaml",
+                        "review-service":   "review-patch.yaml",
+                        "pairing-service":  "pairing-patch.yaml",
+                        "next-app":         "next-patch.yaml"
+                    ]
+
+                    // (2) Git clone & checkout
+                    withCredentials([usernamePassword(credentialsId: 'github-access', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+                        sh """
+                        rm -rf dlink-manifests
+                        git clone https://\$GIT_USER:\$GIT_PASS@github.com/ACS7th/dlink-manifests.git
+                        cd dlink-manifests
+                        git checkout staging
+                        git config user.name "dealim"
+                        git config user.email "dealimmmm@gmail.com"
+                        """
+
+                        // (3) 버전 맵을 `env.VERSION_MAP`에서 추출
+                        def versionMap = [:]
+                        env.VERSION_MAP.split(",").each { entry ->
+                            def parts = entry.split(":")
+                            if (parts.length == 2) {
+                                versionMap[parts[0]] = parts[1]
+                            }
+                        }
+
+                        // (4) 빌드된 이미지 정보 기반으로 manifest 업데이트
+                        env.SERVICES_TO_BUILD.split(" ").each { service ->
+                            def patchFile = patchMap[service]
+                            def currentVersion = versionMap[service]
+
+                            if (patchFile && currentVersion) {
+                                echo "🔄 ${patchFile} 업데이트 중 (버전: ${currentVersion})"
+
+                                sh """
+                                sed -i 's|image: .*/dlink/${service}:.*|image: ${env.ECR_URL}/dlink/${service}:${currentVersion}|' dlink-manifests/overlays/cloud/patches/${patchFile}
+                                """
+                            } else {
+                                echo "⚠️ ${service}에 대한 패치 파일 또는 버전 정보 없음"
+                            }
+                        }
+
+                        // (5) Git commit & push
+                        sh """
+                        cd dlink-manifests
+                        git add overlays/cloud/patches
+                        git diff --cached --quiet || (git commit -m "Update image versions for CI" && git push origin staging)
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Build succeeded!'
+            slackSend(
+                channel: '#dlk-cicd-events',
+                color: 'good',
+                message: "✅ Jenkins Build 성공!\n - 프로젝트: ${env.JOB_NAME}\n - 빌드 번호: #${env.BUILD_NUMBER}\n - 확인: ${env.BUILD_URL}"
+            )
+        }
+        failure {
+            echo '❌ Build failed!'
+            slackSend(
+                channel: '#dlk-cicd-events',
+                color: 'danger',
+                message: "❌ Jenkins Build 실패!\n - 프로젝트: ${env.JOB_NAME}\n - 빌드 번호: #${env.BUILD_NUMBER}\n - 확인: ${env.BUILD_URL}"
+            )
+        }
+        always {
+            echo "📌 빌드 종료 (성공/실패 관계없이 실행됨)"
+        }
+    }
+}

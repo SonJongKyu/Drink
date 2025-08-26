@@ -1,0 +1,107 @@
+version: '3.8'
+
+services:
+  api-gateway:
+    image: dealim/api-gateway:demo
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-dev/Dockerfile-api-gateway
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_PORT: 9999
+      JWT_SECRET_KEY: 8d83e2f8c9bc77d8f8094e7bcf13fa3200a5bf376196f365973f7091e8d784cee4a42802450f2edb5c7f36bb7e9c47395d8c7f74f764d7b5b84fede8e8be597e
+      AUTH_SERVICE_URI: http://auth-service:9991
+      ALCOHOL_SERVICE_URI: http://alcohol-service:9992
+      HIGHBALL_SERVICE_URI: http://highball-service:9993
+      REVIEW_SERVICE_URI: http://review-service:9994
+      PAIRING_SERVICE_URI: http://pairing-service:9995
+    networks:
+      - dlink_net
+
+  auth-service:
+    image: dealim/auth-service:demo
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-dev/Dockerfile-auth
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATA_MONGODB_URI: mongodb://admin:admin@asordk.synology.me:27017/dlink_db?authSource=admin
+      JWT_SECRET_KEY: 8d83e2f8c9bc77d8f8094e7bcf13fa3200a5bf376196f365973f7091e8d784cee4a42802450f2edb5c7f36bb7e9c47395d8c7f74f764d7b5b84fede8e8be597e
+      SERVER_PORT: 9991
+    networks:
+      - dlink_net
+
+  alcohol-service:
+    image: dealim/alcohol-service:demo
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-dev/Dockerfile-alcohol
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATA_MONGODB_URI: mongodb://admin:admin@asordk.synology.me:27017/dlink_db?authSource=admin
+      ES_DATASOURCE_URI: http://asordk.synology.me:9200
+      SERVER_PORT: 9992
+    networks:
+      - dlink_net
+
+  highball-service:
+    image: dealim/highball-service:demo
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-dev/Dockerfile-highball
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATA_MONGODB_URI: mongodb://admin:admin@asordk.synology.me:27017/dlink_db?authSource=admin
+      SERVER_PORT: 9993
+    networks:
+      - dlink_net
+
+  review-service:
+    image: dealim/review-service:demo
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-dev/Dockerfile-review
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATA_MONGODB_URI: mongodb://admin:admin@asordk.synology.me:27017/dlink_db?authSource=admin
+      SERVER_PORT: 9994
+    networks:
+      - dlink_net
+
+  pairing-service:
+    image: dealim/pairing-service:demo
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-dev/Dockerfile-pairing
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATA_MONGODB_URI: mongodb://admin:admin@asordk.synology.me:27017/dlink_db?authSource=admin
+      SERVER_PORT: 9995
+    networks:
+      - dlink_net
+
+  next-app:
+    image: dealim/next-app:demo
+    build:
+      context: ./next-app
+      dockerfile: ./Dockerfile-prod
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      SPRING_URI: http://api-gateway:9999
+      NEXTAUTH_SECRET: ${JWT_SECRET_KEY}
+      NEXTAUTH_URL: http://localhost:3000
+    networks:
+      - dlink_net
+
+networks:
+  dlink_net:
+    driver: bridge

@@ -1,0 +1,155 @@
+networks:
+  dlink_net:
+    driver: bridge
+
+services:
+
+  next-app:
+    image: harbor.asordk.synology.me/dlink/next-app:v3.1.10
+    build:
+      context: ./next-app
+      dockerfile: ./Dockerfile-prod
+    ports:
+      - "40221:3000"
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      SPRING_URI: ${SPRING_URI}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      KAKAO_REST_API: ${KAKAO_REST_API}
+      KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET}
+      NAVER_CLIENT_ID: ${NAVER_CLIENT_ID}
+      NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET}
+      NEXTAUTH_SECRET: ${JWT_SECRET_KEY}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      AWS_ACCESS_KEY: ${AWS_ACCESS_KEY}
+      AWS_SECRET_KEY: ${AWS_SECRET_KEY}
+      AWS_GATEWAY_URI: ${AWS_GATEWAY_URI}
+    networks:
+      - dlink_net
+
+  redis:
+    image: redis:7
+    restart: always
+    ports:
+      - 6379:6379
+    command: sh -c "redis-server --requirepass \"$SPRING_DATA_REDIS_PASSWORD\""
+    environment:
+      - SPRING_DATA_REDIS_PASSWORD=${SPRING_DATA_REDIS_PASSWORD}
+    networks:
+      - dlink_net
+
+  api-gateway:
+    image: harbor.asordk.synology.me/dlink/api-gateway:v3.0.3
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-prod/Dockerfile-api-gateway
+    ports:
+      - "9999:9999"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SERVER_PORT: 9999
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      AUTH_SERVICE_URI: ${AUTH_SERVICE_URI}
+      ALCOHOL_SERVICE_URI: ${ALCOHOL_SERVICE_URI}
+      HIGHBALL_SERVICE_URI: ${HIGHBALL_SERVICE_URI}
+      REVIEW_SERVICE_URI: ${REVIEW_SERVICE_URI}
+      PAIRING_SERVICE_URI: ${PAIRING_SERVICE_URI}
+      OTEL_COLLECTOR_URI: ${OTEL_COLLECTOR_URI}
+    networks:
+      - dlink_net
+
+  auth-service:
+    image: harbor.asordk.synology.me/dlink/auth-service:v3.1.2
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-prod/Dockerfile-auth
+    ports:
+      - "9991:9991"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      GOOGLE_APP_USERNAME: ${GOOGLE_APP_USERNAME}
+      GOOGLE_APP_PASSWORD: ${GOOGLE_APP_PASSWORD}
+      SERVER_PORT: 9991
+    networks:
+      - dlink_net
+
+  alcohol-service:
+    image: harbor.asordk.synology.me/dlink/alcohol-service:v3.0.3
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-prod/Dockerfile-alcohol
+    ports:
+      - "9992:9992"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI}
+      ES_DATASOURCE_URI: ${ES_DATASOURCE_URI}
+      SERVER_PORT: 9992
+      OTEL_COLLECTOR_URI: ${OTEL_COLLECTOR_URI}
+    networks:
+      - dlink_net
+
+  highball-service:
+    image: harbor.asordk.synology.me/dlink/highball-service:v3.0.3
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-prod/Dockerfile-highball
+    ports:
+      - "9993:9993"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI}
+      AWS_ACCESS_KEY: ${AWS_ACCESS_KEY}
+      AWS_SECRET_KEY: ${AWS_SECRET_KEY}
+      SERVER_PORT: 9993
+    networks:
+      - dlink_net
+
+  review-service:
+    image: harbor.asordk.synology.me/dlink/review-service:v3.0.3
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-prod/Dockerfile-review
+    ports:
+      - "9994:9994"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI}
+      SERVER_PORT: 9994
+    networks:
+      - dlink_net
+
+  pairing-service:
+    image: harbor.asordk.synology.me/dlink/pairing-service:v3.0.8
+    build:
+      context: ./spring-app
+      dockerfile: ./dockerfiles-prod/Dockerfile-pairing
+    ports:
+      - "9995:9995"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI}
+      AWS_ACCESS_KEY: ${AWS_ACCESS_KEY}
+      AWS_SECRET_KEY: ${AWS_SECRET_KEY}
+      SERVER_PORT: 9995
+      SPRING_DATA_REDIS_HOST: ${SPRING_DATA_REDIS_HOST}
+      SPRING_DATA_REDIS_PORT: ${SPRING_DATA_REDIS_PORT}
+      SPRING_DATA_REDIS_PASSWORD: ${SPRING_DATA_REDIS_PASSWORD}
+    networks:
+      - dlink_net
+
+  chat-service:
+    image: harbor.asordk.synology.me/dlink/chat-service:v3.0.0
+    build:
+      context: ./chatbot-app
+      dockerfile: ./Dockerfile-prod
+    ports:
+      - "13956:13956"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SPRING_DATA_MONGODB_URI=${SPRING_DATA_MONGODB_URI}
+    networks:
+      - dlink_net
