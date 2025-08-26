@@ -1,0 +1,30 @@
+services:
+  zookeeper:
+    image: bitnami/zookeeper:latest
+    networks: 
+      - kafka_network
+    container_name: zookeeper
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: kafkabroker:1.0
+    container_name: kafka-broker-0
+    depends_on:
+      - zookeeper
+    environment:
+      - BROKER_ID=0
+      - ZOOKEEPER_CONNECT=zookeeper:2181
+      - LISTENERS=PLAINTEXT://0.0.0.0:9092
+      - ADVERTISED_LISTENERS=PLAINTEXT://192.168.56.100:9092
+      - LOG_DIR=/var/lib/kafka/logs
+    ports:
+      - "9092:9092"
+    networks:
+      - kafka_network
+
+networks:
+  kafka_network:
+    driver: bridge
