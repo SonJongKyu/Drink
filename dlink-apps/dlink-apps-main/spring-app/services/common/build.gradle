@@ -1,0 +1,18 @@
+plugins {
+    id 'java-library'
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
+}
+
+tasks.named('test') {
+    enabled = false
+}
+
+tasks.withType(Test) {
+    exclude '**/*ApplicationTests.class'
+}
+
+bootJar { enabled = false }
+jar { enabled = true }

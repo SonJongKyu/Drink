@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      routes:
+        - id: auth-service
+          uri: ${AUTH_SERVICE_URI}
+          predicates:
+            - Path=/api/v1/auth/**
+        - id: alcohols-service
+          uri: ${ALCOHOL_SERVICE_URI}
+          predicates:
+            - Path=/api/v1/alcohols/**
+        - id: highball-service
+          uri: ${HIGHBALL_SERVICE_URI}
+          predicates:
+            - Path=/api/v1/highball/**
+        - id: review-service
+          uri: ${REVIEW_SERVICE_URI}
+          predicates:
+            - Path=/api/v1/review/**
+        - id: pairing-service
+          uri: ${PAIRING_SERVICE_URI}
+          predicates:
+            - Path=/api/v1/pairing/**
+
+springdoc:
+  swagger-ui:
+    use-root-path: true
+    urls:
+      - name: Auth Service
+        url: /api/v1/auth/v3/api-docs
+      - name: Alcohol Service
+        url: /api/v1/alcohols/v3/api-docs
+      - name: Highball Service
+        url: /api/v1/highball/v3/api-docs
+      - name: Review Service
+        url: /api/v1/review/v3/api-docs
+      - name: Pairing Service
+        url: /api/v1/pairing/v3/api-docs

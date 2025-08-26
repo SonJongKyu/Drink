@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: auth
+  elasticsearch:
+    uris: ${ES_DATASOURCE_URI:localhost:9200}
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${GOOGLE_APP_USERNAME:default-value}
+    password: ${GOOGLE_APP_PASSWORD:default-value}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true

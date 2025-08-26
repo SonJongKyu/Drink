@@ -1,0 +1,8 @@
+spring:
+  devtools:
+    restart:
+      enabled: true
+
+springdoc:
+  api-docs:
+    path: /api/v1/review/v3/api-docs

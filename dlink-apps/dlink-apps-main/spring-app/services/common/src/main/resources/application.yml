@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: common
+
+  elasticsearch:
+    uris: ${ES_DATASOURCE_URI}
+    # username:
+    # password:

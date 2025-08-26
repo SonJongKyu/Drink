@@ -1,0 +1,15 @@
+dependencies {
+    implementation project(':common') 
+
+    // MVC
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // bedrock
+    implementation group: 'org.springframework.ai', name: 'spring-ai-bedrock-converse-spring-boot-starter', version: '1.0.0-M5'
+
+    // selenium
+    implementation 'org.seleniumhq.selenium:selenium-java:4.19.1'
+
+    // redis
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+}
