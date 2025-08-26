@@ -1,0 +1,26 @@
+# Builder Stage
+FROM gradle:8.12.0-jdk21-alpine AS builder
+WORKDIR /app
+
+# Gradle 캐싱을 활용한 빌드 최적화
+COPY gradle gradle
+COPY build.gradle settings.gradle ./
+COPY services/api-gateway api-gateway
+RUN gradle :api-gateway:dependencies --no-daemon  # 종속성 캐싱
+COPY . .
+RUN gradle :api-gateway:bootJar --no-daemon
+
+# Production Stage
+FROM openjdk:21-jdk-slim AS production
+WORKDIR /app
+
+RUN groupadd --system appgroup && useradd --system --create-home --gid appgroup appuser
+
+COPY --from=builder /app/api-gateway/build/libs/*.jar app.jar
+RUN chown -R appuser:appgroup /app && chmod 750 /app/app.jar
+
+USER appuser
+
+EXPOSE 9999
+
+ENTRYPOINT ["java", "-jar", "app.jar"]
