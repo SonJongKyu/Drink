@@ -2,7 +2,7 @@
 
 ## **📌 Summary**
 
-본 프로젝트는 **멀티 애플리케이션(dlink-apps)** 과 **Kubernetes 배포 매니페스트(dlink-manifests)** 를 활용하여 **엔드-투-엔드 클라우드 네이티브 애플리케이션 환경**을 구축한 팀팀 프로젝트입니다.  
+본 프로젝트는 **멀티 애플리케이션(dlink-apps)** 과 **Kubernetes 배포 매니페스트(dlink-manifests)** 를 활용하여 **엔드-투-엔드 클라우드 네이티브 애플리케이션 환경**을 구축한 팀 프로젝트입니다.  
 Python(Chatbot), Next.js(Frontend), Spring Boot(Backend), Kafka, Redis 등 다양한 서비스를 Docker 및 Kubernetes에서 실행하고,  
 Kustomize/Argo CD 기반으로 **배포 자동화·관측(모니터링/로깅)** 까지 구성했습니다.
 
